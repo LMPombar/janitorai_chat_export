@@ -28,7 +28,8 @@
       "scripting",
       "activeTab",
       "downloads",
-      "webRequest"
+      "webRequest",
+      "storage"
   ],
   "host_permissions": ["https://janitorai.com/*"]
 

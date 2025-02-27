@@ -1,69 +1,116 @@
-async function exportToWord(messages, includeIcons) {
-    console.log("Preparing to export to Word via background script...");
-    
-    try {
-      // Clean messages data for transfer (remove circular references if any)
-      const cleanMessages = messages.map(m => ({
-        Author: m.Author || 'Unknown',
-        Message: m.Message || '',
-        // Only include icon if needed
-        ...(includeIcons && m.Icon ? { Icon: m.Icon } : {})
-      }));
-      
-      // Send message to background script
-      chrome.runtime.sendMessage(
-        {
-          action: 'createWordDocument',
-          messages: cleanMessages
-        },
-        (response) => {
-          if (!response) {
-            console.error("No response from background script");
-            alert("Failed to generate document: No response from extension");
-            return;
+
+function executeToWord(messages) {
+  console.log("Preparing to export to Word...");
+
+  const exportHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <title>Word Export</title>
+          <script src="${chrome.runtime.getURL('docx.min.js')}"></script>
+      </head>
+      <body>
+          <script>
+              async function generateDoc(messages) {
+                  try {
+                      console.log("Creating Word document...");
+
+                      // Create document
+                      const doc = new docx.Document({
+                          sections: [{
+                              properties: {},
+                              children: messages.map(m => {
+                                  let elements = [];
+
+                                  // If the user wants icons, insert them next to the author name
+                                  if (m.IconBase64) {
+                                      elements.push(
+                                          new docx.ImageRun({
+                                              data: Uint8Array.from(atob(m.IconBase64), c => c.charCodeAt(0)), 
+                                              transformation: { width: 24, height: 24 } 
+                                          }),
+                                          new docx.TextRun({ text: " ", size: 24 }) // Space between image and name
+                                      );
+                                  }
+
+                                  // Add author name in bold
+                                  elements.push(new docx.TextRun({ text: m.Author, bold: true }));
+
+                                  return [
+                                      new docx.Paragraph({ children: elements }),
+
+                                      // Split message by newlines and add each line as a paragraph
+                                      ...m.Message.split("\\n").map(line => 
+                                          new docx.Paragraph({
+                                              children: [new docx.TextRun({ text: line })]
+                                          })
+                                      ),
+
+                                      // Add an empty paragraph for spacing
+                                      new docx.Paragraph({
+                                          children: [new docx.TextRun({ text: "" })]
+                                      })
+                                  ];
+                              }).flat()
+                          }]
+                      });
+
+                      // Generate and download the document
+                      const blob = await docx.Packer.toBlob(doc);
+                      const link = document.createElement('a');
+                      link.href = URL.createObjectURL(blob);
+                      link.download = "chat_export.docx";
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+
+                      window.parent.postMessage({ type: 'EXPORT_COMPLETE', success: true }, '*');
+                  } catch (error) {
+                      console.error("Error creating document:", error);
+                      window.parent.postMessage({ type: 'EXPORT_COMPLETE', success: false, error: error.toString() }, '*');
+                  }
+              }
+
+              window.addEventListener('message', async function(event) {
+                  if (event.data.type === 'EXPORT_WORD') {
+                      await generateDoc(event.data.messages);
+                  }
+              });
+
+              window.parent.postMessage({ type: 'EXPORT_READY' }, '*');
+          </script>
+      </body>
+      </html>
+  `;
+
+  // Create a blob URL for the HTML content
+  const blob = new Blob([exportHTML], { type: 'text/html' });
+  const exportUrl = URL.createObjectURL(blob);
+
+  // Create an iframe to load the export page
+  const iframe = document.createElement('iframe');
+  iframe.style.display = 'none';
+  document.body.appendChild(iframe);
+
+  window.addEventListener('message', function messageHandler(event) {
+      if (event.data.type === 'EXPORT_READY') {
+          iframe.contentWindow.postMessage({ type: 'EXPORT_WORD', messages: messages }, '*');
+      }
+      else if (event.data.type === 'EXPORT_COMPLETE') {
+          window.removeEventListener('message', messageHandler);
+          setTimeout(() => {
+              document.body.removeChild(iframe);
+              URL.revokeObjectURL(exportUrl);
+          }, 1000);
+
+          if (!event.data.success) {
+              console.error("Error in export:", event.data.error);
+              alert("Failed to generate Word document: " + event.data.error);
           }
-          
-          if (!response.success) {
-            console.error("Error from background script:", response.error);
-            alert("Failed to generate document: " + response.error);
-            return;
-          }
-          
-          console.log("Document generated successfully in background");
-          
-          // Convert base64 back to blob
-          const byteCharacters = atob(response.docBase64);
-          const byteArrays = [];
-          
-          for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-            const slice = byteCharacters.slice(offset, offset + 512);
-            
-            const byteNumbers = new Array(slice.length);
-            for (let i = 0; i < slice.length; i++) {
-              byteNumbers[i] = slice.charCodeAt(i);
-            }
-            
-            const byteArray = new Uint8Array(byteNumbers);
-            byteArrays.push(byteArray);
-          }
-          
-          const blob = new Blob(byteArrays, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-          
-          // Create download link
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = "chat_export.docx";
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          console.log("Document download triggered.");
-        }
-      );
-    } catch (error) {
-      console.error("Error preparing document for export:", error);
-      alert("Error preparing document for export: " + error.message);
-    }
+      }
+  });
+
+  iframe.src = exportUrl;
 }
 
-export { exportToWord };
+export { executeToWord };

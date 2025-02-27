@@ -100,3 +100,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 chrome.runtime.onInstalled.addListener(() => {
     console.log("Extension Installed");
 });
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "exportWord") {
+      chrome.scripting.executeScript({
+          target: { tabId: sender.tab.id },
+          function: executeWordExport,
+          args: [request.messages, request.includeIcons]
+      });
+  }
+});

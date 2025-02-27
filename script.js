@@ -113,6 +113,11 @@ async function scrollAndExportChat(limit = null, includeIcons = false, format = 
 
             let iconUrl = iconElem ? iconElem.src : "";
 
+            // Remove iconUrl if exporting to Word
+            if (format === "word") {
+                iconUrl = null;
+            }
+
             if (content && !messages.has(index)) {
                 messages.set(index, { "Author": author, "Message": content, "Icon": iconUrl });
             }
@@ -145,119 +150,9 @@ async function scrollAndExportChat(limit = null, includeIcons = false, format = 
         const { exportToCSV } = await import(chrome.runtime.getURL("export_csv.js"));
         exportToCSV(sortedMessages, includeIcons);
     } else if (format === "word") {
-        // Create a separate HTML file with the docx library included
-        // and execute it in the context of the extension
-        executeWordExport(sortedMessages, includeIcons);
+        const { executeToWord } = await import(chrome.runtime.getURL("export_word.js"));
+        executeToWord(sortedMessages);  // Cannot export images due to CORS
     } else {
         console.error("Invalid format. Use 'csv' or 'word'.");
     }
-}
-
-// Function to execute the Word export in a separate context
-function executeWordExport(messages, includeIcons) {
-    console.log("Preparing to export to Word via executeScript...");
-    
-    // Create a clean copy of messages for transfer
-    const cleanMessages = messages.map(m => ({
-        Author: m.Author || 'Unknown',
-        Message: m.Message || '',
-        ...(includeIcons && m.Icon ? { Icon: m.Icon } : {})
-    }));
-    
-    // Create a temporary HTML file that includes the docx library
-    const exportHTML = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Word Export</title>
-            <script src="${chrome.runtime.getURL('docx.min.js')}"></script>
-        </head>
-        <body>
-            <script>
-                window.addEventListener('message', async function(event) {
-                    if (event.data.type === 'EXPORT_WORD') {
-                        const messages = event.data.messages;
-                        
-                        try {
-                            console.log("Creating Word document...");                            
-                            const doc = new docx.Document({
-                                sections: [{
-                                    properties: {},
-                                    children: messages.map(m => [
-                                        new docx.Paragraph({
-                                            children: [new docx.TextRun({ text: m.Author, bold: true, font: "Segoe UI" })]
-                                        }),
-                                        // Split the message by newlines and add each line as a separate paragraph
-                                        ...m.Message.split("\\n").map(line => 
-                                            new docx.Paragraph({
-                                                children: [new docx.TextRun({ text: line, font: "Segoe UI" })]
-                                            })
-                                        ),
-                                        // Add an empty paragraph after each message to separate it from the next message
-                                        new docx.Paragraph({
-                                            children: [new docx.TextRun({ text: "" })]
-                                        })
-                                    ]).flat()
-                                }]
-                            });
-
-                            // Generate the blob for the document
-                            const blob = await docx.Packer.toBlob(doc);
-                            
-                            // Create a download link and trigger the download
-                            const link = document.createElement('a');
-                            link.href = URL.createObjectURL(blob);
-                            link.download = "chat_export.docx";
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                            
-                            // Notify the parent window that the export is complete
-                            window.parent.postMessage({ type: 'EXPORT_COMPLETE', success: true }, '*');
-                        } catch (error) {
-                            console.error("Error creating document:", error);
-                            window.parent.postMessage({ type: 'EXPORT_COMPLETE', success: false, error: error.toString() }, '*');
-                        }
-                    }
-                });
-                
-                // Let parent window know the iframe is ready
-                window.parent.postMessage({ type: 'EXPORT_READY' }, '*');
-            </script>
-        </body>
-        </html>
-    `;
-    
-    // Create a blob URL for the HTML content
-    const blob = new Blob([exportHTML], { type: 'text/html' });
-    const exportUrl = URL.createObjectURL(blob);
-    
-    // Create an iframe to load the export page
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    
-    // Set up message listener
-    window.addEventListener('message', function messageHandler(event) {
-        if (event.data.type === 'EXPORT_READY') {
-            // Send the messages to the iframe for export
-            iframe.contentWindow.postMessage({ type: 'EXPORT_WORD', messages: cleanMessages }, '*');
-        }
-        else if (event.data.type === 'EXPORT_COMPLETE') {
-            // Clean up the iframe and revoke the URL after export
-            window.removeEventListener('message', messageHandler);
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-                URL.revokeObjectURL(exportUrl);
-            }, 1000);
-            
-            if (!event.data.success) {
-                console.error("Error in export:", event.data.error);
-                alert("Failed to generate Word document: " + event.data.error);
-            }
-        }
-    });
-    
-    // Load the export page in the iframe
-    iframe.src = exportUrl;
 }
