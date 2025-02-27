@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const includeIconsCheckbox = document.getElementById("includeIcons");
     const loadingIndicator = document.getElementById("loading");
     const cancelExportBtn = document.getElementById("cancelExport");
+    const applyMarkdownCheckbox = document.getElementById("applyMarkdown");
 
     function setLoadingState(isLoading) {
         exportCsvBtn.disabled = isLoading;
@@ -15,15 +16,19 @@ document.addEventListener("DOMContentLoaded", () => {
     async function startExport(format) {
         setLoadingState(true); // Disable buttons and show loading
 
+        console.log('StartingExport Function call')
+
         const includeIcons = includeIconsCheckbox.checked;
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         const numMessages = messagesCounter.value ? parseInt(messagesCounter.value, 10) : null;
+        const applyMarkdown = applyMarkdownCheckbox.checked;
 
         chrome.runtime.sendMessage({
             action: "startExport",
             limit: numMessages,
             format: format,
             includeIcons: includeIcons,
+            applyMarkdown: applyMarkdown,
             tabId: tab.id
         });
 
@@ -44,10 +49,3 @@ document.addEventListener("DOMContentLoaded", () => {
     exportWordBtn.addEventListener("click", () => startExport("word"));
     cancelExportBtn.addEventListener("click", cancelExport);
 });
-
-// This function runs in the content script (inside the web page)
-function runExportScript(numMessages, format, includeIcons) {
-    window.scrollAndExportChat(numMessages, includeIcons, format);
-}
-
-

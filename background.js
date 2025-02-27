@@ -41,21 +41,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "startExport") {
         if (isExporting) return; // Prevent multiple exports at once
 
+        console.log('startExport message arrived')
+
         isExporting = true;
         currentTabId = message.tabId; // Store the current tab ID
 
         chrome.scripting.executeScript({
             target: { tabId: message.tabId },
-            func: (limit, format, includeIcons) => {
+            func: (limit, format, includeIcons, applyMarkdown) => {
                 window.stopExport = false; // Ensure it's false at start
-                window.scrollAndExportChat(limit, includeIcons, format)
+                window.scrollAndExportChat(limit, includeIcons, format, applyMarkdown)
                     .then(() => {
                         if (!window.stopExport) {
                             chrome.runtime.sendMessage({ action: "exportComplete" });
                         }
                     });
             },
-            args: [message.limit, message.format, message.includeIcons]
+            args: [message.limit, message.format, message.includeIcons, message.applyMarkdown]
         });
     } 
     else if (message.action === "stopExport") {

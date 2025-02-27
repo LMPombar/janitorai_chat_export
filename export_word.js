@@ -1,9 +1,8 @@
-
-function executeToWord(messages) {
+function executeToWord(messages, applyMarkdown) {
   console.log("Preparing to export to Word...");
 
   const exportHTML = `
-      <!DOCTYPE html>
+<!DOCTYPE html>
       <html>
       <head>
           <title>Word Export</title>
@@ -11,7 +10,40 @@ function executeToWord(messages) {
       </head>
       <body>
           <script>
-              async function generateDoc(messages) {
+              function parseMarkdown(text) {
+                  const parts = [];
+                  let lastIndex = 0;
+  
+                  // Regex for Markdown: ***bold italic***, **bold**, *italic*
+                  const markdownRegex = /(\\*\\*\\*(.*?)\\*\\*\\*|\\*\\*(.*?)\\*\\*|\\*(.*?)\\*)/g;
+  
+                  let match;
+                  while ((match = markdownRegex.exec(text)) !== null) {
+                      // Push normal text before match
+                      if (match.index > lastIndex) {
+                          parts.push(new docx.TextRun({ text: text.substring(lastIndex, match.index) }));
+                      }
+  
+                      // Apply styles based on match groups
+                      if (match[1]?.startsWith("***")) {
+                          parts.push(new docx.TextRun({ text: match[2], bold: true, italics: true }));
+                      } else if (match[1]?.startsWith("**")) {
+                          parts.push(new docx.TextRun({ text: match[3], bold: true }));
+                      } else if (match[1]?.startsWith("*")) {
+                          parts.push(new docx.TextRun({ text: match[4], italics: true }));
+                      }
+  
+                      lastIndex = markdownRegex.lastIndex;
+                  }
+  
+                  // Add remaining text
+                  if (lastIndex < text.length) {
+                      parts.push(new docx.TextRun({ text: text.substring(lastIndex) }));
+                  }
+  
+                  return parts;
+              }
+              async function generateDoc(messages, applyMarkdown) {
                   try {
                       console.log("Creating Word document...");
 
@@ -34,7 +66,12 @@ function executeToWord(messages) {
                                   }
 
                                   // Add author name in bold
-                                  elements.push(new docx.TextRun({ text: m.Author, bold: true }));
+                                  elements.push(new docx.TextRun({ 
+                                    text: m.Author,
+                                    bold: true,
+                                    smallCaps: true,
+                                    underline: {type: 'single'}
+                                  }));
 
                                   return [
                                       new docx.Paragraph({ children: elements }),
@@ -42,10 +79,12 @@ function executeToWord(messages) {
                                       // Split message by newlines and add each line as a paragraph
                                       ...m.Message.split("\\n").map(line => 
                                           new docx.Paragraph({
-                                              children: [new docx.TextRun({ text: line })]
+                                              children: applyMarkdown 
+                                                  ? parseMarkdown(line)
+                                                  : [new docx.TextRun({ text: line })]
                                           })
                                       ),
-
+                                      
                                       // Add an empty paragraph for spacing
                                       new docx.Paragraph({
                                           children: [new docx.TextRun({ text: "" })]
@@ -73,7 +112,7 @@ function executeToWord(messages) {
 
               window.addEventListener('message', async function(event) {
                   if (event.data.type === 'EXPORT_WORD') {
-                      await generateDoc(event.data.messages);
+                      await generateDoc(event.data.messages, event.data.applyMarkdown);
                   }
               });
 
@@ -94,7 +133,11 @@ function executeToWord(messages) {
 
   window.addEventListener('message', function messageHandler(event) {
       if (event.data.type === 'EXPORT_READY') {
-          iframe.contentWindow.postMessage({ type: 'EXPORT_WORD', messages: messages }, '*');
+        iframe.contentWindow.postMessage({ 
+            type: 'EXPORT_WORD', 
+            messages: messages, 
+            applyMarkdown: applyMarkdown 
+        }, '*');
       }
       else if (event.data.type === 'EXPORT_COMPLETE') {
           window.removeEventListener('message', messageHandler);

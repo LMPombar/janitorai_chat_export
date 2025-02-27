@@ -96,7 +96,7 @@ function runExportScript(limit, format, includeIcons) {
 }
 
 
-async function scrollAndExportChat(limit = null, includeIcons = false, format = "csv") {
+async function scrollAndExportChat(limit = null, includeIcons = false, format = "csv", markdown = false) {
     let messages = new Map();
     let chatContainer = document.querySelector("[data-testid='virtuoso-scroller']");
     let messagesContainer = document.querySelector("[data-testid='virtuoso-item-list']");
@@ -114,14 +114,14 @@ async function scrollAndExportChat(limit = null, includeIcons = false, format = 
             let iconElem = msg.querySelector(".css-uul55m img");
 
             let author = authorElem ? authorElem.innerText.trim() : "Unknown";
-            let content = Array.from(contentElems)
-                .map(p => p.innerText.trim())
-                .filter(text => text.length > 0)
-                .join("\n\n");
+            
+            var content = Array.from(contentElems)
+            content = content.map(p =>
+                (format === "word" && markdown)? extractFormattedText(p) : p.innerText.trim()
+            )
+            content = content.filter(text => text.length > 0).join("\n\n");
 
             let iconUrl = iconElem ? iconElem.src : "";
-
-            // Remove iconUrl if exporting to Word
             if (format === "word") {
                 iconUrl = null;
             }
@@ -164,9 +164,55 @@ async function scrollAndExportChat(limit = null, includeIcons = false, format = 
             exportToCSV(sortedMessages, includeIcons);
         } else if (format === "word") {
             const { executeToWord } = await import(chrome.runtime.getURL("export_word.js"));
-            executeToWord(sortedMessages);  // Cannot export images due to CORS
+            executeToWord(sortedMessages, markdown);  // Cannot export images due to CORS
         } else {
             console.error("Invalid format. Use 'csv' or 'word'.");
         }
     }
+}
+
+function extractFormattedText(element, isBold = false, isItalic = false) {
+    let result = "";
+
+    element.childNodes.forEach((node, index, nodes) => {
+        let text = "";
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            text = node.textContent;
+
+            // Preserve leading and trailing spaces for better formatting
+            let leadingSpace = text.match(/^\s+/) ? " " : "";
+            let trailingSpace = text.match(/\s+$/) ? " " : "";
+            text = text.trim();
+
+            // Apply formatting
+            if (isBold && isItalic) {
+                text = `***${text}***`;
+            } else if (isBold) {
+                text = `**${text}**`;
+            } else if (isItalic) {
+                text = `*${text}*`;
+            }
+
+            text = leadingSpace + text + trailingSpace;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            let newBold = isBold || node.tagName === "B" || node.tagName === "STRONG";
+            let newItalic = isItalic || node.tagName === "I" || node.tagName === "EM";
+
+            text = extractFormattedText(node, newBold, newItalic);
+        }
+
+        // Ensure spaces are preserved between elements
+        let prevChar = result.slice(-1);
+        let nextChar = nodes[index + 1]?.textContent?.trim().charAt(0) || "";
+
+        let needsLeadingSpace = prevChar && /\w/.test(prevChar) && text && /^\w/.test(text);
+        let needsTrailingSpace = text && /\w/.test(text.slice(-1)) && nextChar && /^\w/.test(nextChar);
+
+        if (needsLeadingSpace) result += " ";
+        result += text;
+        if (needsTrailingSpace) result += " ";
+    });
+
+    return result.replace(/\s+/g, " ").trim();
 }
