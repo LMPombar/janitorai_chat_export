@@ -174,29 +174,37 @@ function executeWordExport(messages, includeIcons) {
         </head>
         <body>
             <script>
-                // Receive the messages from the parent window
                 window.addEventListener('message', async function(event) {
                     if (event.data.type === 'EXPORT_WORD') {
                         const messages = event.data.messages;
                         
                         try {
-                            console.log("Creating Word document...");
-                            
-                            // Create document
+                            console.log("Creating Word document...");                            
                             const doc = new docx.Document({
                                 sections: [{
                                     properties: {},
                                     children: messages.map(m => [
-                                        new docx.Paragraph({ children: [new docx.TextRun({ text: m.Author, bold: true })] }),
-                                        new docx.Paragraph({ children: [new docx.TextRun({ text: m.Message })] })
+                                        new docx.Paragraph({
+                                            children: [new docx.TextRun({ text: m.Author, bold: true, font: "Segoe UI" })]
+                                        }),
+                                        // Split the message by newlines and add each line as a separate paragraph
+                                        ...m.Message.split("\\n").map(line => 
+                                            new docx.Paragraph({
+                                                children: [new docx.TextRun({ text: line, font: "Segoe UI" })]
+                                            })
+                                        ),
+                                        // Add an empty paragraph after each message to separate it from the next message
+                                        new docx.Paragraph({
+                                            children: [new docx.TextRun({ text: "" })]
+                                        })
                                     ]).flat()
                                 }]
                             });
-                            
-                            // Generate blob
+
+                            // Generate the blob for the document
                             const blob = await docx.Packer.toBlob(doc);
                             
-                            // Download the file
+                            // Create a download link and trigger the download
                             const link = document.createElement('a');
                             link.href = URL.createObjectURL(blob);
                             link.download = "chat_export.docx";
@@ -204,7 +212,7 @@ function executeWordExport(messages, includeIcons) {
                             link.click();
                             document.body.removeChild(link);
                             
-                            // Notify parent that we're done
+                            // Notify the parent window that the export is complete
                             window.parent.postMessage({ type: 'EXPORT_COMPLETE', success: true }, '*');
                         } catch (error) {
                             console.error("Error creating document:", error);
@@ -213,18 +221,18 @@ function executeWordExport(messages, includeIcons) {
                     }
                 });
                 
-                // Let parent know we're ready
+                // Let parent window know the iframe is ready
                 window.parent.postMessage({ type: 'EXPORT_READY' }, '*');
             </script>
         </body>
         </html>
     `;
     
-    // Create a blob URL for the HTML
+    // Create a blob URL for the HTML content
     const blob = new Blob([exportHTML], { type: 'text/html' });
     const exportUrl = URL.createObjectURL(blob);
     
-    // Create an iframe to load our export page
+    // Create an iframe to load the export page
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
     document.body.appendChild(iframe);
@@ -232,11 +240,11 @@ function executeWordExport(messages, includeIcons) {
     // Set up message listener
     window.addEventListener('message', function messageHandler(event) {
         if (event.data.type === 'EXPORT_READY') {
-            // Send the messages to the iframe
+            // Send the messages to the iframe for export
             iframe.contentWindow.postMessage({ type: 'EXPORT_WORD', messages: cleanMessages }, '*');
         }
         else if (event.data.type === 'EXPORT_COMPLETE') {
-            // Clean up
+            // Clean up the iframe and revoke the URL after export
             window.removeEventListener('message', messageHandler);
             setTimeout(() => {
                 document.body.removeChild(iframe);
@@ -250,6 +258,6 @@ function executeWordExport(messages, includeIcons) {
         }
     });
     
-    // Load the export page
+    // Load the export page in the iframe
     iframe.src = exportUrl;
 }

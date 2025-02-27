@@ -11,14 +11,18 @@
 <body>
     <h3>Export Chat</h3>
 
-    <label for="numMessages">Message number:</label>
-    <input type="number" id="numMessages" min="1" placeholder="All">
+    <div>
+        <label for="numMessages">Message number:</label>
+        <input type="number" id="numMessages" min="1" placeholder="All">
+    </div>
 
-    <label>
-        <input type="checkbox" id="includeIcons" checked>
-        Include avatars
-    </label>
-
+    <div>
+        <label>
+            <input type="checkbox" id="includeIcons" checked>
+            Include avatars
+        </label>
+    </div>
+    
     <button id="exportCSV">Export to CSV</button>
     <button id="exportWord">Export to Word</button>
 
