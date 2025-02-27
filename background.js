@@ -7,6 +7,10 @@ let exportRunning = false;
 let isExporting = false; // Track if export is running
 let currentTabId = null; // Store the tab ID of the running export
 
+chrome.runtime.onInstalled.addListener(() => {
+    console.log("Extension Installed");
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "startExport") {
         if (exportRunning) {
@@ -54,33 +58,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         exportRunning = false;
         chrome.runtime.sendMessage({ action: "exportComplete" });
     }
+    return true;
 });
-
-// Load the docx library
-async function loadDocxLibrary() {
-    if (docxLib) {
-      return docxLib;
-    }
-  
-    try {
-      // Fetch the docx library file
-      const response = await fetch(chrome.runtime.getURL('docx.min.js'));
-      const libText = await response.text();
-      
-      // Create a module URL
-      const blob = new Blob([libText], { type: 'application/javascript' });
-      const moduleURL = URL.createObjectURL(blob);
-      
-      // Import the module
-      docxLib = await import(moduleURL);
-      console.log('Docx library loaded in background:', docxLib);
-      return docxLib;
-    } catch (error) {
-      console.error('Failed to load docx library in background:', error);
-      throw error;
-    }
-  }
-  
-  chrome.runtime.onInstalled.addListener(() => {
-      console.log("Extension Installed");
-  });

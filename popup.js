@@ -1,5 +1,14 @@
 let isListenerActive = false;
 
+async function sendMessageSafe(message) {
+    try {
+        const response = await chrome.runtime.sendMessage(message);
+        return response;
+    } catch (error) {
+        console.error("⚠️ Message failed to send:", error);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const exportCsvBtn = document.getElementById("exportCSV");
     const exportWordBtn = document.getElementById("exportWord");
@@ -29,7 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const numMessages = messagesCounter.value ? parseInt(messagesCounter.value, 10) : null;
         const applyMarkdown = applyMarkdownCheckbox.checked;
 
-        chrome.runtime.sendMessage({
+        await sendMessageSafe({
             action: "startExport",
             limit: numMessages,
             format: format,
@@ -47,6 +56,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (message.action === "exportComplete" || message.action === "exportStopped") {
                 resetUIState();
                 chrome.runtime.onMessage.removeListener(messageListener);
+                isListenerActive = false;
+            } else {
+                console.log("Unknown message action: ", message.action)
             }
         }
 

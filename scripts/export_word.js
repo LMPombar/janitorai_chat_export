@@ -46,14 +46,12 @@ function exportToWord(messages, applyMarkdown) {
               async function generateDoc(messages, applyMarkdown) {
                   try {
                       console.log("Creating Word document...");
-
                       // Create document
                       const doc = new docx.Document({
                           sections: [{
                               properties: {},
                               children: messages.map(m => {
                                   let elements = [];
-
                                   // If the user wants icons, insert them next to the author name
                                   if (m.IconBase64) {
                                       elements.push(
@@ -64,18 +62,15 @@ function exportToWord(messages, applyMarkdown) {
                                           new docx.TextRun({ text: " ", size: 24 }) // Space between image and name
                                       );
                                   }
-
-                                  // Add author name in bold
+                                  // Add author name in bold and small caps and underline
                                   elements.push(new docx.TextRun({ 
                                     text: m.Author,
                                     bold: true,
                                     smallCaps: true,
                                     underline: {type: 'single'}
                                   }));
-
                                   return [
                                       new docx.Paragraph({ children: elements }),
-
                                       // Split message by newlines and add each line as a paragraph
                                       ...m.Message.split("\\n").map(line => 
                                           new docx.Paragraph({
@@ -84,7 +79,6 @@ function exportToWord(messages, applyMarkdown) {
                                                   : [new docx.TextRun({ text: line })]
                                           })
                                       ),
-                                      
                                       // Add an empty paragraph for spacing
                                       new docx.Paragraph({
                                           children: [new docx.TextRun({ text: "" })]
@@ -93,7 +87,6 @@ function exportToWord(messages, applyMarkdown) {
                               }).flat()
                           }]
                       });
-
                       // Generate and download the document
                       const blob = await docx.Packer.toBlob(doc);
                       const link = document.createElement('a');
@@ -102,7 +95,6 @@ function exportToWord(messages, applyMarkdown) {
                       document.body.appendChild(link);
                       link.click();
                       document.body.removeChild(link);
-
                       window.parent.postMessage({ type: 'EXPORT_COMPLETE', success: true }, '*');
                   } catch (error) {
                       console.error("Error creating document:", error);
