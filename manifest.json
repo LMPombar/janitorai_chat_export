@@ -2,11 +2,10 @@
   "manifest_version": 3,
   "name": "JanitorAI Chat Export",
   "version": "1.0",
-  "description": "Exporta chats de JanitorAI a CSV o Word",
-  "permissions": ["scripting", "activeTab", "downloads"],
-  "host_permissions": ["https://janitorai.com/*"],
+  "description": "Export chats from JanitorAI",
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "action": {
     "default_popup": "popup.html",
@@ -15,7 +14,22 @@
   "content_scripts": [
     {
       "matches": ["https://janitorai.com/*"],
-      "js": ["script.js"]
+      "js": ["script.js"],
+      "run_at": "document_end"
     }
-  ]
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["docx.min.js", "export_csv.js", "export_word.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "permissions": [
+      "scripting",
+      "activeTab",
+      "downloads",
+      "webRequest"
+  ],
+  "host_permissions": ["https://janitorai.com/*"]
+
 }
