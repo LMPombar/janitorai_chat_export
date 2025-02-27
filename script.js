@@ -88,6 +88,14 @@ function loadDocxViaFetch() {
     });
 }
 
+
+function runExportScript(limit, format, includeIcons) {
+    window.scrollAndExportChat(limit, includeIcons, format).then(() => {
+        chrome.runtime.sendMessage({ action: "exportComplete" });
+    });
+}
+
+
 async function scrollAndExportChat(limit = null, includeIcons = false, format = "csv") {
     let messages = new Map();
     let chatContainer = document.querySelector("[data-testid='virtuoso-scroller']");
@@ -128,8 +136,13 @@ async function scrollAndExportChat(limit = null, includeIcons = false, format = 
     await new Promise(r => setTimeout(r, 1000));
 
     let prevHeight = -1;
-    while (limit === null || messages.size < limit) {
+    while ((limit === null || messages.size < limit) && !window.stopExport) {
         getMessages();
+
+        if (window.stopExport) { 
+            console.log("🚨 Export stopped by user.");
+            return;
+        }
 
         if (limit !== null && messages.size >= limit) break;
 
@@ -140,19 +153,20 @@ async function scrollAndExportChat(limit = null, includeIcons = false, format = 
         if (chatContainer.scrollTop === prevHeight) break;
     }
 
-    let sortedMessages = Array.from(messages.entries())
-        .sort((a, b) => a[0] - b[0])
-        .map(entry => entry[1]);
+    if (!window.stopExport) {
+        let sortedMessages = Array.from(messages.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(entry => entry[1]);
+        console.table(sortedMessages);
 
-    console.table(sortedMessages);
-
-    if (format === "csv") {
-        const { exportToCSV } = await import(chrome.runtime.getURL("export_csv.js"));
-        exportToCSV(sortedMessages, includeIcons);
-    } else if (format === "word") {
-        const { executeToWord } = await import(chrome.runtime.getURL("export_word.js"));
-        executeToWord(sortedMessages);  // Cannot export images due to CORS
-    } else {
-        console.error("Invalid format. Use 'csv' or 'word'.");
+        if (format === "csv") {
+            const { exportToCSV } = await import(chrome.runtime.getURL("export_csv.js"));
+            exportToCSV(sortedMessages, includeIcons);
+        } else if (format === "word") {
+            const { executeToWord } = await import(chrome.runtime.getURL("export_word.js"));
+            executeToWord(sortedMessages);  // Cannot export images due to CORS
+        } else {
+            console.error("Invalid format. Use 'csv' or 'word'.");
+        }
     }
 }

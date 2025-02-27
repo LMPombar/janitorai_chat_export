@@ -29,84 +29,49 @@ async function loadDocxLibrary() {
   }
 }
 
-// Function to create document
-async function createDocument(messages) {
-  const docx = await loadDocxLibrary();
-  
-  const children = [];
-  
-  messages.forEach(m => {
-    children.push(
-      new docx.Paragraph({
-        children: [new docx.TextRun({ text: m.Author, bold: true })]
-      }),
-      new docx.Paragraph({
-        children: [new docx.TextRun({ text: m.Message })]
-      })
-    );
-  });
-  
-  return new docx.Document({
-    sections: [{
-      properties: {},
-      children: children
-    }]
-  });
-}
-
-// Helper function to convert ArrayBuffer to base64
-function arrayBufferToBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-// Listen for messages from content scripts
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'createWordDocument') {
-    // Handle the request asynchronously
-    (async () => {
-      try {
-        console.log('Background: Creating Word document...');
-        
-        // Load docx library if not already loaded
-        const docx = await loadDocxLibrary();
-        
-        // Create the document
-        const doc = await createDocument(request.messages);
-        
-        // Convert to buffer
-        const buffer = await docx.Packer.toBuffer(doc);
-        
-        // Convert buffer to base64
-        const base64Data = arrayBufferToBase64(buffer);
-        
-        // Send the response back
-        sendResponse({ success: true, docBase64: base64Data });
-      } catch (error) {
-        console.error('Error in background script:', error);
-        sendResponse({ success: false, error: error.toString() });
-      }
-    })();
-    
-    // Return true to indicate we will send response asynchronously
-    return true;
-  }
-});
-
 chrome.runtime.onInstalled.addListener(() => {
     console.log("Extension Installed");
 });
 
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "exportWord") {
-      chrome.scripting.executeScript({
-          target: { tabId: sender.tab.id },
-          function: executeWordExport,
-          args: [request.messages, request.includeIcons]
-      });
-  }
+///
+let isExporting = false; // Track if export is running
+let currentTabId = null; // Store the tab ID of the running export
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "startExport") {
+        if (isExporting) return; // Prevent multiple exports at once
+
+        isExporting = true;
+        currentTabId = message.tabId; // Store the current tab ID
+
+        chrome.scripting.executeScript({
+            target: { tabId: message.tabId },
+            func: (limit, format, includeIcons) => {
+                window.stopExport = false; // Ensure it's false at start
+                window.scrollAndExportChat(limit, includeIcons, format)
+                    .then(() => {
+                        if (!window.stopExport) {
+                            chrome.runtime.sendMessage({ action: "exportComplete" });
+                        }
+                    });
+            },
+            args: [message.limit, message.format, message.includeIcons]
+        });
+    } 
+    else if (message.action === "stopExport") {
+        if (!currentTabId) return; // No active tab to stop
+
+        isExporting = false;
+        chrome.runtime.sendMessage({ action: "exportStopped" });
+
+        // Explicitly stop the process in the webpage for the active tab
+        chrome.scripting.executeScript({
+            target: { tabId: currentTabId },
+            func: () => {
+                window.stopExport = true;
+            }
+        });
+
+        currentTabId = null; // Reset the tab ID after stopping
+    }
 });
