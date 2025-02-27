@@ -1,3 +1,5 @@
+let isListenerActive = false;
+
 document.addEventListener("DOMContentLoaded", () => {
     const exportCsvBtn = document.getElementById("exportCSV");
     const exportWordBtn = document.getElementById("exportWord");
@@ -10,13 +12,17 @@ document.addEventListener("DOMContentLoaded", () => {
     function setLoadingState(isLoading) {
         exportCsvBtn.disabled = isLoading;
         exportWordBtn.disabled = isLoading;
+        cancelExportBtn.style.display = isLoading ? "block" : "none";
         loadingIndicator.style.display = isLoading ? "block" : "none";
+    }
+
+    function resetUIState() {
+        setLoadingState(false);
+        console.log("UI reset: buttons enabled, loading hidden.");
     }
 
     async function startExport(format) {
         setLoadingState(true); // Disable buttons and show loading
-
-        console.log('StartingExport Function call')
 
         const includeIcons = includeIconsCheckbox.checked;
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -32,17 +38,25 @@ document.addEventListener("DOMContentLoaded", () => {
             tabId: tab.id
         });
 
+        if (isListenerActive) {
+            chrome.runtime.onMessage.removeListener(messageListener);
+            isListenerActive = false;
+        }
+
         function messageListener(message) {
             if (message.action === "exportComplete" || message.action === "exportStopped") {
-                setLoadingState(false);
+                resetUIState();
                 chrome.runtime.onMessage.removeListener(messageListener);
             }
         }
+
         chrome.runtime.onMessage.addListener(messageListener);
     }
 
     function cancelExport() {
         chrome.runtime.sendMessage({ action: "stopExport" });
+        resetUIState();
+        console.log("Export process stopped.");
     }
 
     exportCsvBtn.addEventListener("click", () => startExport("csv"));

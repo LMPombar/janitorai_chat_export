@@ -1,4 +1,4 @@
-function executeToWord(messages, applyMarkdown) {
+function exportToWord(messages, applyMarkdown) {
   console.log("Preparing to export to Word...");
 
   const exportHTML = `
@@ -6,7 +6,7 @@ function executeToWord(messages, applyMarkdown) {
       <html>
       <head>
           <title>Word Export</title>
-          <script src="${chrome.runtime.getURL('docx.min.js')}"></script>
+          <script src="${chrome.runtime.getURL('assets/docx.min.js')}"></script>
       </head>
       <body>
           <script>
@@ -156,4 +156,4 @@ function executeToWord(messages, applyMarkdown) {
   iframe.src = exportUrl;
 }
 
-export { executeToWord };
+export { exportToWord };

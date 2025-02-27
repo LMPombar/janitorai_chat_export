@@ -20,7 +20,12 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["docx.min.js", "export_csv.js", "export_word.js"],
+      "resources": [
+        "assets/docx.min.js",
+        "scripts/export_csv.js",
+        "scripts/export_word.js",
+        "scripts/utils.js"
+      ],
       "matches": ["<all_urls>"]
     }
   ],
