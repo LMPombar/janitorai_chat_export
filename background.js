@@ -60,3 +60,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     return true;
 });
+
+// Disable the extension in tabs that are not janitorAI
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (tab.url && tab.url.includes("janitorai.com")) {
+        chrome.action.enable(tabId);
+    } else {
+        chrome.action.disable(tabId);
+    }
+});
+
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+    let tab = await chrome.tabs.get(activeInfo.tabId);
+    if (tab.url && tab.url.includes("janitorai.com")) {
+        chrome.action.enable(tab.id);
+    } else {
+        chrome.action.disable(tab.id);
+    }
+});

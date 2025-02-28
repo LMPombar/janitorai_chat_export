@@ -36,6 +36,8 @@
       "webRequest",
       "storage"
   ],
-  "host_permissions": ["https://janitorai.com/*"]
-
+  "host_permissions": [
+      "https://janitorai.com/chats/*",
+      "https://www.janitorai.com/chats/*"
+  ]
 }
