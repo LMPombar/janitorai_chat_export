@@ -95,13 +95,17 @@ async function scrollAndExportChat(limit = null, includeIcons = false, format = 
             } else if (format === "word") {
                 const { exportToWord } = await import(chrome.runtime.getURL("scripts/export_word.js"));
                 exportToWord(sortedMessages, markdown);  // Cannot export images due to CORS
+            } else if (format === "pdf") {
+                const { exportToPDF } = await import(chrome.runtime.getURL("scripts/export_pdf.js"));
+                exportToPDF(sortedMessages, markdown);  // Cannot export images due to CORS
             } else {
-                console.error("Invalid format. Use 'csv' or 'word'.");
+                console.error("Invalid format. Use 'csv', 'word' or 'pdf'.");
             }
         }
     } catch (error) {
         console.error("Export failed:", error);
     } finally {
+        chrome.runtime.sendMessage({ action: "exportComplete" });
         resetExportState();
     }
 }

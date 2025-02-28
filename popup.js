@@ -5,13 +5,14 @@ async function sendMessageSafe(message) {
         const response = await chrome.runtime.sendMessage(message);
         return response;
     } catch (error) {
-        console.error("⚠️ Message failed to send:", error);
+        console.error("Message failed to send:", error);
     }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
     const exportCsvBtn = document.getElementById("exportCSV");
     const exportWordBtn = document.getElementById("exportWord");
+    const exportPdfBtn = document.getElementById("exportPDF");
     const messagesCounter = document.getElementById("numMessages");
     const includeIconsCheckbox = document.getElementById("includeIcons");
     const loadingIndicator = document.getElementById("loading");
@@ -73,5 +74,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     exportCsvBtn.addEventListener("click", () => startExport("csv"));
     exportWordBtn.addEventListener("click", () => startExport("word"));
+    exportPdfBtn.addEventListener("click", () => startExport("pdf"));
     cancelExportBtn.addEventListener("click", cancelExport);
 });

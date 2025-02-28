@@ -45,7 +45,17 @@ function extractFormattedText(element, isBold = false, isItalic = false) {
     return result.replace(/\s+/g, " ").trim();
 }
 
-export { extractFormattedText };
+function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+export { extractFormattedText, arrayBufferToBase64 };
 
 
 // UNUSED DOCX LIBRARY LOAD ATTEMPTS

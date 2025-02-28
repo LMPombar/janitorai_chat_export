@@ -4,7 +4,6 @@
 // Store the docx library when loaded
 let docxLib = null;
 let exportRunning = false;
-let isExporting = false; // Track if export is running
 let currentTabId = null; // Store the tab ID of the running export
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -18,14 +17,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return;
         }
         console.log('startExport message arrived')
-
-        isExporting = true;
         currentTabId = message.tabId; // Store the current tab ID
 
         chrome.scripting.executeScript({
             target: { tabId: message.tabId },
             func: (limit, format, includeIcons, applyMarkdown) => {
-                window.stopExport = false; // Ensure it's false at start
+                window.stopExport = false;
                 window.scrollAndExportChat(limit, includeIcons, format, applyMarkdown)
                     .then(() => {
                         if (!window.stopExport) {
@@ -40,7 +37,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.log("🛑 Export canceled.");
         if (!currentTabId) return; // No active tab to stop
         
-        isExporting = false;
         exportRunning = false;
         chrome.runtime.sendMessage({ action: "exportStopped" });
 
@@ -63,7 +59,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // Disable the extension in tabs that are not janitorAI
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (tab.url && tab.url.includes("janitorai.com")) {
+    if (tab.url && tab.url.includes("janitorai.com/chats/")) {
         chrome.action.enable(tabId);
     } else {
         chrome.action.disable(tabId);
@@ -72,7 +68,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
     let tab = await chrome.tabs.get(activeInfo.tabId);
-    if (tab.url && tab.url.includes("janitorai.com")) {
+    if (tab.url && tab.url.includes("janitorai.com/chats/")) {
         chrome.action.enable(tab.id);
     } else {
         chrome.action.disable(tab.id);

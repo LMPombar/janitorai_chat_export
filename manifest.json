@@ -22,8 +22,10 @@
     {
       "resources": [
         "assets/docx.min.js",
+        "assets/pdf-lib.min.js",
         "scripts/export_csv.js",
         "scripts/export_word.js",
+        "scripts/export_pdf.js",
         "scripts/utils.js"
       ],
       "matches": ["<all_urls>"]
@@ -33,8 +35,7 @@
       "scripting",
       "activeTab",
       "downloads",
-      "webRequest",
-      "storage"
+      "webRequest"
   ],
   "host_permissions": [
       "https://janitorai.com/chats/*",
